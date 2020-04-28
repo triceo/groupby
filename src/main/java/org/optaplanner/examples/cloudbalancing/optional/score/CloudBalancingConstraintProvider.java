@@ -28,6 +28,11 @@ import org.optaplanner.examples.cloudbalancing.domain.CloudProcess;
 import static org.optaplanner.core.api.score.stream.ConstraintCollectors.sum;
 import static org.optaplanner.core.api.score.stream.Joiners.equal;
 
+/*
+ * Benchmark               Mode  Cnt    Score   Error  Units
+ * Main.constraintStream  thrpt   25  102,391 ± 8,075  ops/s
+ * Main.drl               thrpt   25  113,988 ± 5,403  ops/s
+ */
 public class CloudBalancingConstraintProvider implements ConstraintProvider {
 
     @Override
@@ -44,6 +49,11 @@ public class CloudBalancingConstraintProvider implements ConstraintProvider {
     // Hard constraints
     // ************************************************************************
 
+    /*
+     * Benchmark               Mode  Cnt    Score   Error  Units
+     * Main.constraintStream  thrpt   25  213,678 ± 7,249  ops/s
+     * Main.drl               thrpt   25  206,155 ± 7,382  ops/s
+     */
     private Constraint requiredCpuPowerTotal(ConstraintFactory constraintFactory) {
         return constraintFactory.from(CloudProcess.class)
                 .groupBy(CloudProcess::getComputer, sum(CloudProcess::getRequiredCpuPower))
@@ -53,6 +63,11 @@ public class CloudBalancingConstraintProvider implements ConstraintProvider {
                         (computer, requiredCpuPower) -> requiredCpuPower - computer.getCpuPower());
     }
 
+    /*
+     * Benchmark               Mode  Cnt    Score    Error  Units
+     * Main.constraintStream  thrpt   25  217,106 ± 15,024  ops/s
+     * Main.drl               thrpt   25  199,013 ± 11,860  ops/s
+     */
     private Constraint requiredMemoryTotal(ConstraintFactory constraintFactory) {
         return constraintFactory.from(CloudProcess.class)
                 .groupBy(CloudProcess::getComputer, sum(CloudProcess::getRequiredMemory))
@@ -62,6 +77,11 @@ public class CloudBalancingConstraintProvider implements ConstraintProvider {
                         (computer, requiredMemory) -> requiredMemory - computer.getMemory());
     }
 
+    /*
+     * Benchmark               Mode  Cnt    Score    Error  Units
+     * Main.constraintStream  thrpt   25  204,833 ±  8,577  ops/s
+     * Main.drl               thrpt   25  213,384 ± 15,406  ops/s
+     */
     private Constraint requiredNetworkBandwidthTotal(ConstraintFactory constraintFactory) {
         return constraintFactory.from(CloudProcess.class)
                 .groupBy(CloudProcess::getComputer, sum(CloudProcess::getRequiredNetworkBandwidth))
@@ -75,6 +95,11 @@ public class CloudBalancingConstraintProvider implements ConstraintProvider {
     // Soft constraints
     // ************************************************************************
 
+    /*
+     * Benchmark               Mode  Cnt    Score    Error  Units
+     * Main.constraintStream  thrpt   25  240,658 ± 23,269  ops/s
+     * Main.drl               thrpt   25  216,462 ± 11,181  ops/s
+     */
     private Constraint computerCost(ConstraintFactory constraintFactory) {
         return constraintFactory.from(CloudComputer.class)
                 .ifExists(CloudProcess.class, equal(Function.identity(), CloudProcess::getComputer))
