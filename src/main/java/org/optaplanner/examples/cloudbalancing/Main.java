@@ -72,11 +72,8 @@ public class Main {
             default:
                 throw new IllegalStateException();
         }
-        return scoreDirectorFactory.buildScoreDirector(false, constraintMatchEnabled);
+        return scoreDirectorFactory.buildScoreDirector(false, false);
     }
-
-    @Param({"true", "false"})
-    public boolean constraintMatchEnabled;
 
     @Param({"CS-D", "DRL"})
     public String scoreDirectorFactoryType;
