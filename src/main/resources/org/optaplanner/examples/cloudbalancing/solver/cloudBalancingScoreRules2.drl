@@ -22,21 +22,33 @@ import org.optaplanner.core.api.score.buildin.hardsoft.HardSoftScoreHolder;
 import org.optaplanner.examples.cloudbalancing.domain.CloudBalance;
 import org.optaplanner.examples.cloudbalancing.domain.CloudComputer;
 import org.optaplanner.examples.cloudbalancing.domain.CloudProcess;
+import org.optaplanner.examples.cloudbalancing.GroupKey;
 
 global HardSoftScoreHolder scoreHolder;
 
-rule "requiredCpuPowerTotal"
-    when
-        $computer : CloudComputer($cpuPower : cpuPower)
-        accumulate(
-            CloudProcess(
-                computer == $computer,
-                $requiredCpuPower : requiredCpuPower);
-            $requiredCpuPowerTotal : sum($requiredCpuPower);
-            $requiredCpuPowerTotal > $cpuPower
-        )
-    then
-        scoreHolder.addHardConstraintMatch(kcontext, $cpuPower - $requiredCpuPowerTotal);
+rule R1 when
+    CloudProcess($key: computer)
+    not( GroupKey(key == $key) )
+then
+    insert( new GroupKey( $key ) );
+end
+
+rule R2 when
+    $k: GroupKey( $key : key )
+    not( CloudProcess( computer == $key ) )
+then
+    delete ( $k );
+end
+
+rule R3 when
+    GroupKey( $computer : key )
+    accumulate (
+        CloudProcess( $requirement: requiredCpuPower, computer == $computer );
+                $sum : sum($requirement);
+                $sum > ((CloudComputer)$computer).getCpuPower()
+    )
+then
+    scoreHolder.addHardConstraintMatch(kcontext, ((CloudComputer)$computer).getCpuPower() - $sum);
 end
 
 // Keeping this in here just so the solver has some soft constraints to work with. Not related to groupBy().

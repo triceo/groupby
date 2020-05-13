@@ -29,7 +29,6 @@ import org.optaplanner.core.impl.solver.DefaultSolverFactory;
 import org.optaplanner.examples.cloudbalancing.domain.CloudBalance;
 import org.optaplanner.examples.cloudbalancing.domain.CloudComputer;
 import org.optaplanner.examples.cloudbalancing.domain.CloudProcess;
-import org.optaplanner.examples.cloudbalancing.optional.score.CloudBalancingConstraintProvider;
 import org.optaplanner.persistence.xstream.impl.domain.solution.XStreamSolutionFileIO;
 
 @State(Scope.Benchmark)
@@ -45,15 +44,24 @@ public class Main {
             new ConstraintStreamScoreDirectorFactory<>(SOLUTION_DESCRIPTOR, new CloudBalancingConstraintProvider(),
                     ConstraintStreamImplType.DROOLS);
     private static final InnerScoreDirectorFactory<CloudBalance> DRL_SCORE_DIRECTOR_FACTORY =
-            getDrlScoreDirectorFactory();
+            getDrlScoreDirectorFactory("cloudBalancingSolverConfig.xml");
+    private static final InnerScoreDirectorFactory<CloudBalance> DRL2_SCORE_DIRECTOR_FACTORY =
+            getDrlScoreDirectorFactory("cloudBalancingSolverConfig2.xml");
+    @Param({"DRL-groupBy1", "DRL", "CS-D"})
+    public String scoreDirectorFactoryType;
+    private CloudBalance solutionToTest = readSolution("solved");
+    private ScoreDirector<CloudBalance> scoreDirector;
+    private CloudProcess entity1;
+    private CloudProcess entity2;
 
     private static CloudBalance readSolution(String id) {
         XStreamSolutionFileIO<CloudBalance> solutionFileIO = new XStreamSolutionFileIO(CloudBalance.class);
         return solutionFileIO.read(new File("data/cloudbalancing/" + id + ".xml"));
     }
 
-    private static InnerScoreDirectorFactory<CloudBalance> getDrlScoreDirectorFactory() {
-        SolverConfig solverConfig = SolverConfig.createFromXmlResource("org/optaplanner/examples/cloudbalancing/solver/cloudBalancingSolverConfig.xml");
+    private static InnerScoreDirectorFactory<CloudBalance> getDrlScoreDirectorFactory(String configFileName) {
+        SolverConfig solverConfig =
+                SolverConfig.createFromXmlResource("org/optaplanner/examples/cloudbalancing/solver/" + configFileName);
         DefaultSolverFactory<CloudBalance> dsf = new DefaultSolverFactory<>(solverConfig);
         return (InnerScoreDirectorFactory<CloudBalance>) dsf.getScoreDirectorFactory();
     }
@@ -65,6 +73,10 @@ public class Main {
                 // See DRL in src/main/resources/org/optaplanner/examples/cloudbalancing/solver/cloudBalancingScoreRules.drl.
                 scoreDirectorFactory = DRL_SCORE_DIRECTOR_FACTORY;
                 break;
+            case "DRL-groupBy1":
+                // See DRL in src/main/resources/org/optaplanner/examples/cloudbalancing/solver/cloudBalancingScoreRules2.drl.
+                scoreDirectorFactory = DRL2_SCORE_DIRECTOR_FACTORY;
+                break;
             case "CS-D":
                 // See CloudBalancingConstraintProvider class.
                 scoreDirectorFactory = CS_SCORE_DIRECTOR_FACTORY;
@@ -74,14 +86,6 @@ public class Main {
         }
         return scoreDirectorFactory.buildScoreDirector(false, false);
     }
-
-    @Param({"CS-D", "DRL"})
-    public String scoreDirectorFactoryType;
-
-    private CloudBalance solutionToTest = readSolution("solved");
-    private ScoreDirector<CloudBalance> scoreDirector;
-    private CloudProcess entity1;
-    private CloudProcess entity2;
 
     @Setup(Level.Invocation)
     public void createSession() {
@@ -131,5 +135,4 @@ public class Main {
         bh.consume(scoreDirector.calculateScore()); // fireAllRules()
         return bh;
     }
-
 }
