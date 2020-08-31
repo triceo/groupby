@@ -41756,5 +41756,4 @@
       <requiredNetworkBandwidth>1</requiredNetworkBandwidth>
     </CloudProcess>
   </processList>
-  <score id="6404">-3048init/-3hard/-1064490soft</score>
 </CloudBalance>

@@ -24,7 +24,6 @@ import org.openjdk.jmh.infra.Blackhole;
 import org.optaplanner.examples.cloudbalancing.domain.CloudBalance;
 import org.optaplanner.examples.cloudbalancing.domain.CloudComputer;
 import org.optaplanner.examples.cloudbalancing.domain.CloudProcess;
-import org.optaplanner.persistence.xstream.impl.domain.solution.XStreamSolutionFileIO;
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
@@ -49,7 +48,7 @@ public class Main {
     private FactHandle entity2fh;
 
     private static CloudBalance readSolution(String id) {
-        XStreamSolutionFileIO<CloudBalance> solutionFileIO = new XStreamSolutionFileIO(CloudBalance.class);
+        SolutionIO<CloudBalance> solutionFileIO = new SolutionIO<>(CloudBalance.class);
         return solutionFileIO.read(new File("data/cloudbalancing/" + id + ".xml"));
     }
 
@@ -96,8 +95,8 @@ public class Main {
     }
 
     @Benchmark
-    @Fork(10)
-    @Warmup(iterations = 10)
+    @Fork(1)
+    @Warmup(iterations = 1)
     public Blackhole swapMove(Blackhole bh) {
         session.delete(entity1fh);
         CloudComputer originalComputer = entity1.getComputer();
@@ -111,8 +110,8 @@ public class Main {
     }
 
     @Benchmark
-    @Fork(10)
-    @Warmup(iterations = 10)
+    @Fork(1)
+    @Warmup(iterations = 1)
     public Blackhole changeMove(Blackhole bh) {
         session.delete(entity1fh);
         entity1.setComputer(entity2.getComputer()); // changes the fact
