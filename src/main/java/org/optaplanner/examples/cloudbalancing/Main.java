@@ -43,10 +43,6 @@ public class Main {
     private static final InnerScoreDirectorFactory<CloudBalance> CS_SCORE_DIRECTOR_FACTORY =
             new ConstraintStreamScoreDirectorFactory<>(SOLUTION_DESCRIPTOR, new CloudBalancingConstraintProvider(),
                     ConstraintStreamImplType.DROOLS);
-    private static final InnerScoreDirectorFactory<CloudBalance> DRL_SCORE_DIRECTOR_FACTORY =
-            getDrlScoreDirectorFactory("cloudBalancingSolverConfig.xml");
-    private static final InnerScoreDirectorFactory<CloudBalance> DRL2_SCORE_DIRECTOR_FACTORY =
-            getDrlScoreDirectorFactory("cloudBalancingSolverConfig2.xml");
     private static final InnerScoreDirectorFactory<CloudBalance> DRL3_SCORE_DIRECTOR_FACTORY =
             getDrlScoreDirectorFactory("cloudBalancingSolverConfig3.xml");
     @Param({"DRL-groupBy1", "DRL-groupBy2", "DRL", "CS-D"})
@@ -71,14 +67,6 @@ public class Main {
     private InnerScoreDirector<CloudBalance> newScoreDirector() {
         InnerScoreDirectorFactory<CloudBalance> scoreDirectorFactory;
         switch (scoreDirectorFactoryType) {
-            case "DRL":
-                // See DRL in src/main/resources/org/optaplanner/examples/cloudbalancing/solver/cloudBalancingScoreRules.drl.
-                scoreDirectorFactory = DRL_SCORE_DIRECTOR_FACTORY;
-                break;
-            case "DRL-groupBy1":
-                // See DRL in src/main/resources/org/optaplanner/examples/cloudbalancing/solver/cloudBalancingScoreRules2.drl.
-                scoreDirectorFactory = DRL2_SCORE_DIRECTOR_FACTORY;
-                break;
             case "DRL-groupBy2":
                 // See DRL in src/main/resources/org/optaplanner/examples/cloudbalancing/solver/cloudBalancingScoreRules3.drl.
                 scoreDirectorFactory = DRL3_SCORE_DIRECTOR_FACTORY;

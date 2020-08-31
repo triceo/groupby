@@ -38,12 +38,3 @@ rule "requiredCpuPowerTotal"
     then
         scoreHolder.addHardConstraintMatch(kcontext, $cpuPower - $requiredCpuPowerTotal);
 end
-
-// Keeping this in here just so the solver has some soft constraints to work with. Not related to groupBy().
-rule "computerCost"
-    when
-        $computer : CloudComputer($cost : cost)
-        exists CloudProcess(computer == $computer)
-    then
-        scoreHolder.addSoftConstraintMatch(kcontext, - $cost);
-end
