@@ -6,6 +6,8 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.rule.FactHandle;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -19,13 +21,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-import org.optaplanner.core.api.score.stream.ConstraintStreamImplType;
-import org.optaplanner.core.config.solver.SolverConfig;
-import org.optaplanner.core.impl.domain.solution.descriptor.SolutionDescriptor;
-import org.optaplanner.core.impl.score.director.InnerScoreDirector;
-import org.optaplanner.core.impl.score.director.InnerScoreDirectorFactory;
-import org.optaplanner.core.impl.score.director.stream.ConstraintStreamScoreDirectorFactory;
-import org.optaplanner.core.impl.solver.DefaultSolverFactory;
 import org.optaplanner.examples.cloudbalancing.domain.CloudBalance;
 import org.optaplanner.examples.cloudbalancing.domain.CloudComputer;
 import org.optaplanner.examples.cloudbalancing.domain.CloudProcess;
@@ -38,59 +33,53 @@ import org.optaplanner.persistence.xstream.impl.domain.solution.XStreamSolutionF
 public class Main {
 
     private static final Random RANDOM = new Random(0);
-    private static final SolutionDescriptor<CloudBalance> SOLUTION_DESCRIPTOR =
-            SolutionDescriptor.buildSolutionDescriptor(CloudBalance.class, CloudProcess.class);
-    private static final InnerScoreDirectorFactory<CloudBalance> CS_SCORE_DIRECTOR_FACTORY =
-            new ConstraintStreamScoreDirectorFactory<>(SOLUTION_DESCRIPTOR, new CloudBalancingConstraintProvider(),
-                    ConstraintStreamImplType.DROOLS);
-    private static final InnerScoreDirectorFactory<CloudBalance> DRL3_SCORE_DIRECTOR_FACTORY =
-            getDrlScoreDirectorFactory("cloudBalancingSolverConfig3.xml");
-    @Param({"DRL-groupBy1", "DRL-groupBy2", "DRL", "CS-D"})
+    private static final KieSessionSupplier ACCUMULATE_DRL_SESSION_SUPPLIER =
+            new DrlBasedKieBase("cloudBalancingScoreRules.drl");
+    private static final KieSessionSupplier GROUPBY_DRL_SESSION_SUPPLIER =
+            new DrlBasedKieBase("cloudBalancingScoreRules3.drl");
+    private static final KieSessionSupplier GROUPBY_EXEC_MODEL_SESSION_SUPPLIER =
+            new ExecModelBasedKieBase();
+    @Param({"groupByDrl", "groupBy", "accumulate"})
     public String scoreDirectorFactoryType;
     private CloudBalance solutionToTest = readSolution("solved");
-    private InnerScoreDirector<CloudBalance> scoreDirector;
+    private KieSession session;
     private CloudProcess entity1;
     private CloudProcess entity2;
+    private FactHandle entity1fh;
+    private FactHandle entity2fh;
 
     private static CloudBalance readSolution(String id) {
         XStreamSolutionFileIO<CloudBalance> solutionFileIO = new XStreamSolutionFileIO(CloudBalance.class);
         return solutionFileIO.read(new File("data/cloudbalancing/" + id + ".xml"));
     }
 
-    private static InnerScoreDirectorFactory<CloudBalance> getDrlScoreDirectorFactory(String configFileName) {
-        SolverConfig solverConfig =
-                SolverConfig.createFromXmlResource("org/optaplanner/examples/cloudbalancing/solver/" + configFileName);
-        DefaultSolverFactory<CloudBalance> dsf = new DefaultSolverFactory<>(solverConfig);
-        return dsf.getScoreDirectorFactory();
-    }
-
-    private InnerScoreDirector<CloudBalance> newScoreDirector() {
-        InnerScoreDirectorFactory<CloudBalance> scoreDirectorFactory;
+    private KieSession newKieSession() {
         switch (scoreDirectorFactoryType) {
-            case "DRL-groupBy2":
-                // See DRL in src/main/resources/org/optaplanner/examples/cloudbalancing/solver/cloudBalancingScoreRules3.drl.
-                scoreDirectorFactory = DRL3_SCORE_DIRECTOR_FACTORY;
-                break;
-            case "CS-D":
-                // See CloudBalancingConstraintProvider class.
-                scoreDirectorFactory = CS_SCORE_DIRECTOR_FACTORY;
-                break;
+            case "groupByDrl":
+                return GROUPBY_DRL_SESSION_SUPPLIER.get();
+            case "groupBy":
+                return GROUPBY_EXEC_MODEL_SESSION_SUPPLIER.get();
+            case "accumulate":
+                return ACCUMULATE_DRL_SESSION_SUPPLIER.get();
             default:
                 throw new IllegalStateException();
         }
-        return scoreDirectorFactory.buildScoreDirector(false, false);
     }
 
     @Setup(Level.Invocation)
     public void createSession() {
-        scoreDirector = newScoreDirector();
-        // Initialize data.
-        scoreDirector.setWorkingSolution(solutionToTest);
-        scoreDirector.calculateScore(); // fireAllRules()
+        session = newKieSession();
+        solutionToTest.getProcessList()
+                .forEach(session::insert);
+        solutionToTest.getComputerList()
+                .forEach(session::insert);
+        session.fireAllRules();
         // Pick the changes to benchmark.
         List<CloudProcess> processes = solutionToTest.getProcessList();
         entity1 = processes.get(RANDOM.nextInt(processes.size()));
+        entity1fh = session.getFactHandle(entity1);
         entity2 = entity1;
+        entity2fh = session.getFactHandle(entity2);
         while (Objects.equals(entity2.getComputer(), entity1.getComputer())) {
             // Make sure we pick a process running on a different computer.
             entity2 = processes.get(RANDOM.nextInt(processes.size()));
@@ -99,22 +88,25 @@ public class Main {
 
     @TearDown(Level.Invocation)
     public void closeSession() {
-        scoreDirector.close(); // Close the session to prevent memory leaks.
+        try {
+            session.dispose(); // Close the session to prevent memory leaks.
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Benchmark
     @Fork(10)
     @Warmup(iterations = 10)
     public Blackhole swapMove(Blackhole bh) {
-        scoreDirector.beforeVariableChanged(entity1, "computer");
+        session.delete(entity1fh);
         CloudComputer originalComputer = entity1.getComputer();
         entity1.setComputer(entity2.getComputer());  // changes the fact
-        scoreDirector.afterVariableChanged(entity1, "computer"); // updates the fact in the WM
-        scoreDirector.beforeVariableChanged(entity2, "computer");
+        session.insert(entity1);
+        session.delete(entity2fh);
         entity2.setComputer(originalComputer);  // changes the fact
-        scoreDirector.afterVariableChanged(entity2, "computer"); // updates the fact in the WM
-        scoreDirector.triggerVariableListeners(); // required by optaplanner; doesn't do anything in this case
-        bh.consume(scoreDirector.calculateScore()); // fireAllRules()
+        session.insert(entity2);
+        bh.consume(session.fireAllRules()); // fireAllRules()
         return bh;
     }
 
@@ -122,11 +114,10 @@ public class Main {
     @Fork(10)
     @Warmup(iterations = 10)
     public Blackhole changeMove(Blackhole bh) {
-        scoreDirector.beforeVariableChanged(entity1, "computer");
+        session.delete(entity1fh);
         entity1.setComputer(entity2.getComputer()); // changes the fact
-        scoreDirector.afterVariableChanged(entity1, "computer"); // updates the fact in the WM
-        scoreDirector.triggerVariableListeners(); // required by optaplanner; doesn't do anything in this case
-        bh.consume(scoreDirector.calculateScore()); // fireAllRules()
+        session.insert(entity1);
+        bh.consume(session.fireAllRules());
         return bh;
     }
 }

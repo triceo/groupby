@@ -1,0 +1,17 @@
+import org.optaplanner.examples.cloudbalancing.domain.CloudBalance;
+import org.optaplanner.examples.cloudbalancing.domain.CloudComputer;
+import org.optaplanner.examples.cloudbalancing.domain.CloudProcess;
+
+rule "requiredCpuPowerTotal"
+    when
+        $computer : CloudComputer($cpuPower : cpuPower)
+        accumulate(
+            CloudProcess(
+                computer == $computer,
+                $requiredCpuPower : requiredCpuPower);
+            $requiredCpuPowerTotal : sum($requiredCpuPower);
+            $requiredCpuPowerTotal > $cpuPower
+        )
+    then
+        // Dummy operation.
+end
