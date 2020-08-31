@@ -22,8 +22,8 @@ import org.openjdk.jmh.infra.Blackhole;
 import org.optaplanner.core.api.score.stream.ConstraintStreamImplType;
 import org.optaplanner.core.config.solver.SolverConfig;
 import org.optaplanner.core.impl.domain.solution.descriptor.SolutionDescriptor;
+import org.optaplanner.core.impl.score.director.InnerScoreDirector;
 import org.optaplanner.core.impl.score.director.InnerScoreDirectorFactory;
-import org.optaplanner.core.impl.score.director.ScoreDirector;
 import org.optaplanner.core.impl.score.director.stream.ConstraintStreamScoreDirectorFactory;
 import org.optaplanner.core.impl.solver.DefaultSolverFactory;
 import org.optaplanner.examples.cloudbalancing.domain.CloudBalance;
@@ -52,7 +52,7 @@ public class Main {
     @Param({"DRL-groupBy1", "DRL-groupBy2", "DRL", "CS-D"})
     public String scoreDirectorFactoryType;
     private CloudBalance solutionToTest = readSolution("solved");
-    private ScoreDirector<CloudBalance> scoreDirector;
+    private InnerScoreDirector<CloudBalance> scoreDirector;
     private CloudProcess entity1;
     private CloudProcess entity2;
 
@@ -65,10 +65,10 @@ public class Main {
         SolverConfig solverConfig =
                 SolverConfig.createFromXmlResource("org/optaplanner/examples/cloudbalancing/solver/" + configFileName);
         DefaultSolverFactory<CloudBalance> dsf = new DefaultSolverFactory<>(solverConfig);
-        return (InnerScoreDirectorFactory<CloudBalance>) dsf.getScoreDirectorFactory();
+        return dsf.getScoreDirectorFactory();
     }
 
-    private ScoreDirector<CloudBalance> newScoreDirector() {
+    private InnerScoreDirector<CloudBalance> newScoreDirector() {
         InnerScoreDirectorFactory<CloudBalance> scoreDirectorFactory;
         switch (scoreDirectorFactoryType) {
             case "DRL":
